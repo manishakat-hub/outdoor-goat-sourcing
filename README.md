@@ -23,6 +23,7 @@ The screens show invented demo suppliers.
 | `index.html` | The app |
 | `shim.js` | Saves data and photos on the phone (IndexedDB) |
 | `sw.js` | Lets the app open with no signal |
+| `onedrive.js`, `onedrive-config.js` | Optional OneDrive sync (hidden until a client ID is pasted into `onedrive-config.js`) |
 | `manifest.webmanifest`, `*.png` | Name and icons for the home screen |
 
 ## Put it on your phone
@@ -70,6 +71,26 @@ On the Export tab, **Save the Lists pack (ZIP)** gives three linked lists:
 Every row has a stable ID, and `Quotes.csv` carries the Supplier ID and Product ID, so the lists join back together. The ZIP also holds the photos and `READ-ME-FIRST.txt` with the import steps.
 
 Two honest limits of Microsoft Lists: a CSV or Excel import cannot carry pictures (upload the photos folder to a SharePoint library and keep the file names), and imported columns arrive as plain text or number columns that cannot later be turned into Lookup columns (add the Lookup columns to `Quotes` by hand; the guide shows how).
+
+## OneDrive sync (optional)
+
+Signs in with Microsoft and keeps one file, `Fair Sourcing Log/fair-log-sync.zip`, in the signed-in person's OneDrive. **Sync now** downloads that file, merges it into the phone (where the same supplier is on both, the newer edit is kept), then uploads the result. Two phones signed in to the same account stay in step.
+
+It stays hidden until you register the app with Microsoft (free, once) and paste its ID into `onedrive-config.js`:
+
+1. Go to <https://entra.microsoft.com> (or portal.azure.com) > **App registrations** > **New registration**.
+2. Name: `Fair Sourcing Log`. Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**.
+3. Redirect URI: platform **Single-page application**, value `https://<your-name>.github.io/<repo>/` (with the closing slash). Register.
+4. Under **API permissions**, add Microsoft Graph > Delegated > **Files.ReadWrite** (User.Read is already there). Some work accounts need an administrator to approve this.
+5. Copy the **Application (client) ID** from the Overview page into `onedrive-config.js`, change the `CACHE` name in `sw.js`, and publish.
+
+Honest limits:
+
+- A supplier deleted on one phone comes back from OneDrive at the next sync. Sync adds and updates; it does not delete.
+- Microsoft keeps web-app sign-ins for about a day. After that the card shows **Sign in again** (one tap).
+- The permission is Files.ReadWrite, which lets the app read and write files in that OneDrive. The app only touches the `Fair Sourcing Log` folder.
+- Photos are part of the file, so it grows as you add photos. Microsoft's single-upload limit is 250 MB.
+- The client ID is not a secret. Never put a password or client secret in the repository.
 
 ## Updating the app
 

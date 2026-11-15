@@ -1,7 +1,7 @@
 /* Fair Sourcing Log service worker: the app opens with no signal.
    The app files are cached when you first open it. Change CACHE when you publish a new version. */
-var CACHE = 'fair-sourcing-log-20261115091545';
-var FILES = ['./', 'index.html', 'shim.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
+var CACHE = 'fair-sourcing-log-20261115224800';
+var FILES = ['./', 'index.html', 'shim.js', 'onedrive-config.js', 'onedrive.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));

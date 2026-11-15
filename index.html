@@ -12,6 +12,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="shim.js"></script>
+<script src="onedrive-config.js"></script>
+<script src="onedrive.js"></script>
 <title>Fair Sourcing Log</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1146,6 +1148,7 @@ function exportTab(){
     '<button class="btn primary" data-act="lists-pack"'+(n&&!S.packBusy?'':' disabled')+'>'+(S.packBusy==='lists'?'Building the pack…':'Save the Lists pack (ZIP)')+'</button></div>'+
     '<div class="card sec"><h2>Backup and move</h2><p class="dim small" style="margin:0">One ZIP with every supplier, quote, photo and your product targets. Restore it on another phone or after reinstalling. Where the same supplier is on both, the newer edit is kept.</p>'+
     '<div class="row"><button class="btn" data-act="backup-save"'+(n&&!S.packBusy?'':' disabled')+'>'+(S.packBusy==='backup'?'Saving…':'Save a backup')+'</button><button class="btn" data-act="backup-restore"'+(S.packBusy?' disabled':'')+'>'+(S.packBusy==='restore'?'Restoring…':'Restore a backup')+'</button></div></div>'+
+    oneDriveCard()+
     '<div class="card sec"><div class="sec-head"><h2>Preview</h2><span class="dim small">'+rows.length+' row'+(rows.length===1?'':'s')+'</span></div>'+
     (rows.length?'<div class="tbl"><table><thead><tr><th>Supplier</th><th>Contact</th><th>Phone</th><th>Wishlist line</th><th>Product</th><th>Price</th><th>MOQ</th></tr></thead><tbody>'+prev+'</tbody></table></div>':'<p class="dim" style="margin:0">Nothing to export yet.</p>')+'</div>'+
     '<div class="card sec"><div class="sec-head"><h2>Storage</h2><span class="pill '+(st.w?'warn':'good')+'">'+esc(st.t)+'</span></div><p class="dim small" style="margin:0">'+(S.db?(window.__standalone?'Everything is saved on this phone as you go, even with no signal. Use Save a backup now and then. Photos stay on this phone too.':'Everything is saved to this page\'s private store as you go. If the signal drops, entries stay on this phone and sync when it returns. Photos need a signal to upload.'):'Storage is not connected in this view, so entries stay on this phone only.')+'</p><button class="btn" data-act="sync">Sync now</button></div>';
@@ -1476,7 +1479,7 @@ function refresh(){
   else render();
 }
 var toastT=null;
-function toast(msg){var h=$('toast-host');h.innerHTML='<div class="toast" role="status">'+esc(msg)+'</div>';clearTimeout(toastT);toastT=setTimeout(function(){h.innerHTML='';},2600);}
+function toast(msg,ms){var h=$('toast-host');h.innerHTML='<div class="toast" role="status">'+esc(msg)+'</div>';clearTimeout(toastT);toastT=setTimeout(function(){h.innerHTML='';},ms||2600);}
 function updateCmp(){
   var el=$('cmp');if(!el||!S.showTargets||!S.edit||!S.modal)return;
   var p=S.edit.draft.products.filter(function(x){return x.id===S.modal.pid;})[0];if(!p)return;
@@ -1609,13 +1612,23 @@ async function saveBackup(){
   }catch(e){if(!e||e.code!=='declined')toast('Could not save the backup.');}
   S.packBusy='';render();
 }
-async function restoreFromBuffer(buf){
+async function restoreFromBuffer(buf,opts){
+  opts=opts||{};
   var entries=await unzipStore(buf),byName={};entries.forEach(function(e){byName[e.name]=e.data;});
   if(!byName['backup.json'])throw new Error('No backup.json in this file.');
   var bk=JSON.parse(new TextDecoder().decode(byName['backup.json']));
   if(!bk||bk.app!=='fair-sourcing-log'||!Array.isArray(bk.suppliers))throw new Error('This is not a Fair Sourcing Log backup.');
   var remap={},photos=0;
   var names=Object.keys(byName).filter(function(n){return /^photos\//.test(n);});
+  if(opts.sync){
+    /* syncing: only bring over the photos of suppliers we are actually taking from the file */
+    var need={};
+    bk.suppliers.forEach(function(sp){
+      var c0=S.suppliers[sp.id];if(c0&&(c0.updatedAt||0)>=(sp.updatedAt||0))return;
+      if(sp.card)need[sp.card]=1;(sp.products||[]).forEach(function(p){(p.photos||[]).forEach(function(i){need[i]=1;});});
+    });
+    names=names.filter(function(n){return need[n.replace(/^photos\//,'').replace(/\.jpg$/,'')];});
+  }
   for(var i=0;i<names.length;i++){
     var old=names[i].replace(/^photos\//,'').replace(/\.jpg$/,'');
     if(!S.assets)break;
@@ -1631,9 +1644,16 @@ async function restoreFromBuffer(buf){
   });
   if(bk.wishlist&&Array.isArray(bk.wishlist.items)){
     var used={};Object.keys(S.suppliers).forEach(function(k){(S.suppliers[k].products||[]).forEach(function(p){if(p.wish)used[p.wish]=1;});});
-    var have={};bk.wishlist.items.forEach(function(w){have[w.id]=1;});
-    var keep=S.wish.filter(function(w){return used[w.id]&&!have[w.id];});
-    S.wish=bk.wishlist.items.concat(keep);S.wishStamp=Math.max(Date.now(),(bk.wishlist.updatedAt||0)+1);S.dirty['c:wish']=1;
+    if(opts.sync&&(bk.wishlist.updatedAt||0)<=(S.wishStamp||0)){
+      /* this phone's product list is newer: keep it, and only add items that newly arrived suppliers point to */
+      var hv={};S.wish.forEach(function(w){hv[w.id]=1;});
+      bk.wishlist.items.forEach(function(w){if(used[w.id]&&!hv[w.id]){S.wish.push(w);S.dirty['c:wish']=1;}});
+    }else{
+      var have={};bk.wishlist.items.forEach(function(w){have[w.id]=1;});
+      var keep=S.wish.filter(function(w){return used[w.id]&&!have[w.id];});
+      S.wish=bk.wishlist.items.concat(keep);
+      S.wishStamp=opts.sync?(bk.wishlist.updatedAt||0):Math.max(Date.now(),(bk.wishlist.updatedAt||0)+1);S.dirty['c:wish']=1;
+    }
   }
   persist();flush();
   return {added:added,kept:kept,photos:photos};
@@ -1650,6 +1670,27 @@ function restoreBackup(){
     S.packBusy='';render();
   };
   document.body.appendChild(i);i.click();
+}
+function oneDriveCard(){
+  var od=window.OneDrive;if(!od||!od.configured())return '';
+  var st=od.state(),busy=S.packBusy==='sync',lock=!!S.packBusy,last='';
+  if(st.last){try{last=new Date(st.last).toLocaleString([],{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});}catch(e){}}
+  var body;
+  if(st.signedIn)body='<p class="dim small" style="margin:0">Signed in'+(st.account?' as '+esc(st.account):'')+'. Sync now brings in anything newer from OneDrive, then saves everything on this phone back to the folder "Fair Sourcing Log". Where the same supplier is on both, the newer edit is kept. A supplier you delete here comes back from OneDrive at the next sync.'+(last?' Last sync: '+esc(last)+'.':'')+'</p>'+
+    '<div class="row"><button class="btn primary" data-act="od-sync"'+(lock?' disabled':'')+'>'+(busy?'Syncing…':'Sync now')+'</button><button class="btn" data-act="od-out"'+(lock?' disabled':'')+'>Sign out</button></div>';
+  else body='<p class="dim small" style="margin:0">'+(st.needsLogin?'Your Microsoft sign-in has expired. Sign in again to keep syncing.':'Keep one copy of your suppliers, quotes and photos on OneDrive, and share it between phones. Sign in with the Microsoft account whose OneDrive you want to use.')+'</p>'+
+    '<button class="btn primary" data-act="od-in">'+(st.needsLogin?'Sign in again':'Sign in with Microsoft')+'</button>';
+  return '<div class="card sec"><h2>OneDrive sync</h2>'+body+'</div>';
+}
+async function syncOneDrive(){
+  var od=window.OneDrive;if(!od||S.packBusy)return;
+  S.packBusy='sync';render();
+  try{
+    var r=await od.sync({merge:function(buf){return restoreFromBuffer(buf,{sync:true});},build:buildBackup});
+    var m=r.merged,n=r.built.suppliers;
+    toast('Synced. '+(m?(m.added?m.added+' updated from OneDrive. ':'Nothing newer on OneDrive. '):'First sync. ')+n+' supplier'+(n===1?'':'s')+' on OneDrive.',4200);
+  }catch(e){toast(od.explain(e),5000);}
+  S.packBusy='';render();
 }
 async function exportCSV(){
   if(!S.downloads){toast('Saving files is not available here. Use Copy for Excel.');return;}
@@ -1849,6 +1890,9 @@ app.addEventListener('click',function(e){
     case 'lists-pack':saveListsPack();return;
     case 'backup-save':saveBackup();return;
     case 'backup-restore':restoreBackup();return;
+    case 'od-in':{window.OneDrive.signIn().catch(function(e){toast(window.OneDrive.explain(e),5000);});return;}
+    case 'od-out':{window.OneDrive.signOut();render();toast('Signed out of OneDrive. Your data on this phone is untouched.',4200);return;}
+    case 'od-sync':syncOneDrive();return;
   }
 });
 function onField(e){
@@ -1881,6 +1925,12 @@ setInterval(function(){flush();},20000);
 
 render();
 connect();
+if(window.OneDrive&&window.OneDrive.ready)window.OneDrive.ready.then(function(r){
+  if(!r)return;
+  S.tab='export';S.edit=null;render();window.scrollTo(0,0);
+  if(r.ok)toast('Signed in to OneDrive. Tap Sync now.',4200);
+  else toast('OneDrive sign-in did not finish: '+r.error,7000);
+});
 })();
 </script>
 </body>
