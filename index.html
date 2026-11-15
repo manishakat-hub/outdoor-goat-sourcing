@@ -1145,7 +1145,9 @@ function exportTab(){
     '<div class="card sec"><h2>Microsoft Lists (your PLM)</h2><p class="dim small" style="margin:0">Three linked lists: Products, Suppliers and Quotes. Quotes holds each supplier\'s price, MOQ, lead time, spec and buyer grade, with the photo file names. The ZIP also holds the photos and a step-by-step guide.</p>'+
     '<button class="btn primary" data-act="lists-pack"'+(n&&!S.packBusy?'':' disabled')+'>'+(S.packBusy==='lists'?'Building the pack…':'Save the Lists pack (ZIP)')+'</button></div>'+
     '<div class="card sec"><h2>Backup and move</h2><p class="dim small" style="margin:0">One ZIP with every supplier, quote, photo and your product targets. Restore it on another phone or after reinstalling. Where the same supplier is on both, the newer edit is kept.</p>'+
-    '<div class="row"><button class="btn" data-act="backup-save"'+(n&&!S.packBusy?'':' disabled')+'>'+(S.packBusy==='backup'?'Saving…':'Save a backup')+'</button><button class="btn" data-act="backup-restore"'+(S.packBusy?' disabled':'')+'>'+(S.packBusy==='restore'?'Restoring…':'Restore a backup')+'</button></div></div>'+
+    '<p class="small" style="margin:0"><strong>'+esc(lastBackupText(backupInfo()))+'</strong></p>'+
+    '<div class="row">'+(window.__canShareFiles&&window.__canShareFiles()?'<button class="btn primary" data-act="backup-now"'+(n&&!S.packBusy?'':' disabled')+'>'+(S.packBusy==='backup'?'Preparing…':'Back up now')+'</button><button class="btn" data-act="backup-save"'+(n&&!S.packBusy?'':' disabled')+'>Save to Downloads</button>':'<button class="btn" data-act="backup-save"'+(n&&!S.packBusy?'':' disabled')+'>'+(S.packBusy==='backup'?'Saving…':'Save a backup')+'</button>')+'</div>'+
+    '<div class="row"><button class="btn" data-act="backup-restore"'+(S.packBusy?' disabled':'')+'>'+(S.packBusy==='restore'?'Restoring…':'Restore a backup')+'</button></div></div>'+
     '<div class="card sec"><div class="sec-head"><h2>Preview</h2><span class="dim small">'+rows.length+' row'+(rows.length===1?'':'s')+'</span></div>'+
     (rows.length?'<div class="tbl"><table><thead><tr><th>Supplier</th><th>Contact</th><th>Phone</th><th>Wishlist line</th><th>Product</th><th>Price</th><th>MOQ</th></tr></thead><tbody>'+prev+'</tbody></table></div>':'<p class="dim" style="margin:0">Nothing to export yet.</p>')+'</div>'+
     '<div class="card sec"><div class="sec-head"><h2>Storage</h2><span class="pill '+(st.w?'warn':'good')+'">'+esc(st.t)+'</span></div><p class="dim small" style="margin:0">'+(S.db?(window.__standalone?'Everything is saved on this phone as you go, even with no signal. Use Save a backup now and then. Photos stay on this phone too.':'Everything is saved to this page\'s private store as you go. If the signal drops, entries stay on this phone and sync when it returns. Photos need a signal to upload.'):'Storage is not connected in this view, so entries stay on this phone only.')+'</p><button class="btn" data-act="sync">Sync now</button></div>';
@@ -1156,6 +1158,7 @@ function listView(){
   var bar='',deep=(S.tab==='products'&&(!!S.nav.l1||S.newp));
   if(S.tab==='products'&&!deep)bar='<button class="btn primary wide" data-act="new-product">'+ic(IC.plus)+'New product</button>'+(S.cardOK?'<button class="btn" data-act="scan-card" style="flex:1.5;white-space:nowrap">'+ic(IC.cam)+'Scan card</button>':'<button class="btn" data-act="add-supplier" style="flex:1.5;white-space:nowrap">Add supplier</button>');
   else if(S.tab==='suppliers')bar=S.cardOK?'<button class="btn primary wide" data-act="scan-card">'+ic(IC.cam)+'Scan card</button><button class="btn" data-act="add-supplier">Type it</button>':'<button class="btn primary" data-act="add-supplier">'+ic(IC.plus)+'Add supplier</button>';
+  if(S.tab!=='export'&&!deep)body=backupBanner()+body;
   return topList()+'<div class="wrap"><main id="main" role="tabpanel" aria-labelledby="tab-'+S.tab+'">'+body+'</main></div>'+
     '<div class="dock">'+(bar?'<div class="in"><div class="wrap">'+bar+'</div></div>':'')+navHTML()+'</div>';
 }
@@ -1444,6 +1447,7 @@ function modalView(){
   if(m.type==='multi')return multiSheet();
   if(m.type==='photo')return '<div class="lightbox"><img src="'+photoSrc(m.aid)+'" alt="Photo"><div class="row"><button class="btn danger" data-act="remove-photo">Remove photo</button><button class="btn primary" data-act="close-modal">Close</button></div></div>';
   if(m.type==='del')return '<div class="scrim" data-act="close-modal"></div><div class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="sh-t"><div class="sheet-head"><h2 id="sh-t">Delete this supplier?</h2></div><div class="sheet-body"><p style="margin:0" class="dim">The supplier and its products are removed from your log. This cannot be undone.</p></div><div class="sheet-foot"><button class="btn" data-act="close-modal">Keep it</button><button class="btn danger" data-act="del-supplier">Delete</button></div></div>';
+  if(m.type==='bkready')return '<div class="scrim" data-act="close-modal"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-t"><div class="sheet-head"><h2 id="sh-t">Backup is ready</h2></div><div class="sheet-body"><p class="dim small" style="margin:0">Tap Share to send it to OneDrive, Files, email or any app on your phone. Or save it to this phone\'s Downloads folder.</p><div class="row"><button class="btn primary" data-act="bk-share">Share</button><button class="btn" data-act="bk-save">Save to Downloads</button></div></div></div>';
   if(m.type==='copy')return '<div class="scrim" data-act="close-modal"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-t"><div class="sheet-head"><h2 id="sh-t">Copy for Excel</h2></div><div class="sheet-body"><p class="dim small" style="margin:0">Your phone blocked automatic copying. Tap the text, select all, copy, then paste into a sheet.</p><textarea id="copybox" rows="10" readonly>'+esc(m.text)+'</textarea></div><div class="sheet-foot"><button class="btn primary" data-act="close-modal">Close</button></div></div>';
   return '';
 }
@@ -1599,15 +1603,66 @@ async function buildBackup(){
   for(var i=0;i<keys.length;i++){var u=await fetchPhoto(keys[i]);if(u){files.push({name:'photos/'+keys[i]+'.jpg',data:u});got++;}else miss++;}
   return {blob:zipStore(files),photos:got,missing:miss,suppliers:sups.length};
 }
-async function saveBackup(){
+var LSB='fsl.lastbackup.v1', LSZ='fsl.remind.snooze.v1';
+function backupInfo(){
+  var last=Number(lsGet(LSB)||0),n=0,total=Object.keys(S.suppliers).length;
+  Object.keys(S.suppliers).forEach(function(k){if((S.suppliers[k].updatedAt||0)>last)n++;});
+  /* the starting product list carries stamp 1; only a real edit (a timestamp) counts as a change */
+  if(S.wish.length&&(S.wishStamp||0)>1e11&&(S.wishStamp||0)>last)n++;
+  return {last:last,n:n,total:total};
+}
+function backupDue(){
+  var b=backupInfo();if(!b.n||!b.total)return null;
+  if(Date.now()<Number(lsGet(LSZ)||0))return null;
+  var days=b.last?(Date.now()-b.last)/86400000:0;
+  if(b.n>=10||(b.last&&days>=3)||(!b.last&&b.n>=3))return b;
+  return null;
+}
+function agoText(ts){
+  var d=Math.floor((Date.now()-ts)/86400000);
+  return d<=0?'today':d===1?'yesterday':d+' days ago';
+}
+function lastBackupText(b){
+  if(!b.last)return 'Not backed up yet.';
+  var when=new Date(b.last).toLocaleString([],{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
+  return 'Last backup: '+when+(b.n?'. '+b.n+' change'+(b.n===1?'':'s')+' since then.':'. Nothing new since then.');
+}
+function backupBanner(){
+  var b=backupDue();if(!b)return '';
+  return '<div class="card sec" role="region" aria-label="Backup reminder" style="border-color:var(--accent)"><div><strong>Back up your work</strong><p class="dim small" style="margin:2px 0 0">'+b.n+' change'+(b.n===1?'':'s')+' not backed up. '+(b.last?'Last backup '+esc(agoText(b.last))+'.':'You have not backed up yet.')+'</p></div>'+
+    '<div class="row"><button class="btn primary" data-act="backup-now"'+(S.packBusy?' disabled':'')+'>Back up now</button><button class="btn" data-act="backup-later">Later</button></div></div>';
+}
+function backupDone(info){
+  lsSet(LSB,info.t0);lsSet(LSZ,0);S.pending=null;
+  toast('Backup saved: '+info.suppliers+' supplier'+(info.suppliers===1?'':'s')+', '+info.photos+' photos'+(info.missing?' ('+info.missing+' photos could not be read)':''),3600);
+}
+async function saveBackup(mode){
   if(!S.downloads){toast('Saving files is not available here.');return;}
+  var share=mode==='share'&&!!(window.__canShareFiles&&window.__canShareFiles());
   S.packBusy='backup';render();
+  var t0=Date.now(),r=null,fn='fair-log-backup-'+stampNow()+'.zip';
   try{
-    var r=await buildBackup();
-    await S.downloads.save({filename:'fair-log-backup-'+stampNow()+'.zip',data:r.blob});
-    toast('Backup saved: '+r.suppliers+' suppliers, '+r.photos+' photos'+(r.missing?' ('+r.missing+' photos could not be read)':''));
-  }catch(e){if(!e||e.code!=='declined')toast('Could not save the backup.');}
+    r=await buildBackup();
+    r.t0=t0;
+    if(share&&Date.now()-t0>3500)throw {code:'share-failed'};   /* too slow: the phone wants a fresh tap before it opens the share sheet */
+    await S.downloads.save({filename:fn,data:r.blob,share:share});
+    backupDone(r);
+  }catch(e){
+    if(e&&e.code==='share-failed'&&r){S.pending={blob:r.blob,filename:fn,t0:t0,suppliers:r.suppliers,photos:r.photos,missing:r.missing};S.modal={type:'bkready'};}
+    else if(!e||e.code!=='declined')toast('Could not save the backup.');
+  }
   S.packBusy='';render();
+}
+async function finishPending(share){
+  var p=S.pending;if(!p||!S.downloads)return;
+  try{
+    await S.downloads.save({filename:p.filename,data:p.blob,share:share});
+    S.modal=null;backupDone(p);
+  }catch(e){
+    if(e&&e.code==='declined'){render();return;}
+    if(share)toast('Sharing did not work here. Use Save to Downloads.',4200);else toast('Could not save the backup.');
+  }
+  render();
 }
 async function restoreFromBuffer(buf){
   var entries=await unzipStore(buf),byName={};entries.forEach(function(e){byName[e.name]=e.data;});
@@ -1769,7 +1824,7 @@ app.addEventListener('click',function(e){
     case 'set-sample':{var cp=currentProduct();if(cp){cp.sample=v;S.edit.dirty=true;saveDraftSoon();render();}return;}
     case 'del-product':{var d=S.edit.draft,pid=S.modal.pid;d.products=d.products.filter(function(x){return x.id!==pid;});Object.keys(S.pend).forEach(function(t){if(S.pend[t].pid===pid)delete S.pend[t];});S.edit.dirty=true;S.modal=null;saveDraftNow();render();return;}
     case 'close-modal':{
-      var cm=S.modal;
+      var cm=S.modal;if(cm&&cm.type==='bkready')S.pending=null;
       S.modal=(cm&&cm.type==='photo'&&cm.kind==='prod'&&cm.pid)?{type:'product',pid:cm.pid}:null;
       if(!S.modal)S.showTargets=false;
       render();return;}
@@ -1847,7 +1902,11 @@ app.addEventListener('click',function(e){
     case 'copy-tsv':copyTSV();return;
     case 'pwa-install':{var ie=window.__installEvt;if(ie){ie.prompt();ie.userChoice&&ie.userChoice.then(function(){window.__installEvt=null;refresh();});}return;}
     case 'lists-pack':saveListsPack();return;
-    case 'backup-save':saveBackup();return;
+    case 'backup-save':saveBackup('save');return;
+    case 'backup-now':saveBackup('share');return;
+    case 'backup-later':lsSet(LSZ,Date.now()+864e5);render();return;
+    case 'bk-share':finishPending(true);return;
+    case 'bk-save':finishPending(false);return;
     case 'backup-restore':restoreBackup();return;
   }
 });

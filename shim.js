@@ -103,17 +103,26 @@
     save: async function (req) {
       var name = String(req.filename || 'file'), ext = (name.split('.').pop() || '').toLowerCase(), type = MIME[ext] || 'application/octet-stream';
       var blob = (typeof Blob !== 'undefined' && req.data instanceof Blob) ? req.data : new Blob([req.data], { type: type });
-      if (isIOS && navigator.canShare && typeof File !== 'undefined') {
+      if ((req.share || isIOS) && navigator.canShare && typeof File !== 'undefined') {
         try {
           var f = new File([blob], name, { type: type });
-          if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: name }); return { status: 'saved' }; }
-        } catch (e) { if (e && e.name === 'AbortError') throw { code: 'declined', message: 'cancelled' }; }
+          if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: name }); return { status: 'saved', shared: true }; }
+        } catch (e) {
+          if (e && e.name === 'AbortError') throw { code: 'declined', message: 'cancelled' };
+          /* asked to share but the phone refused (often: the tap was too long ago): let the caller ask for a fresh tap */
+          if (req.share) throw { code: 'share-failed', message: (e && e.message) || 'share failed' };
+        }
       }
       var url = URL.createObjectURL(blob), a = document.createElement('a');
       a.href = url; a.download = name; a.style.display = 'none'; document.body.appendChild(a); a.click();
       setTimeout(function () { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch (e) { } }, 4000);
       return { status: 'saved' };
     }
+  };
+
+  window.__canShareFiles = function () {
+    try { return !!(navigator.share && navigator.canShare && typeof File !== 'undefined' && navigator.canShare({ files: [new File(['x'], 'x.zip', { type: 'application/zip' })] })); }
+    catch (e) { return false; }
   };
 
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;

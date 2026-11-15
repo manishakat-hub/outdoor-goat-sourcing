@@ -55,6 +55,7 @@ Opening `index.html` directly from the folder also works for trying it out, but 
 
 - Data and photos live **in that browser on that phone**. Another phone, or another browser, starts empty.
 - Clearing the browser's site data deletes it. Installing the app to the home screen makes the phone much less likely to clear it on its own.
+- **Backup reminder.** When there are changes that are not in a backup yet (10 or more, or any after 3 days, or 3 or more before your first backup), a card at the top says so. **Back up now** opens the phone's share sheet so you can send the ZIP straight to OneDrive, Files or email; if the phone cannot share files it saves the ZIP to Downloads. **Later** hides the reminder for a day. The Export tab always shows the time of the last backup.
 - **Save a backup** (Export tab) now and then. It is one ZIP with every supplier, quote, photo and your product targets.
 - **Restore a backup** puts it on any phone. Where the same supplier is on both, the newer edit is kept. This is also how you bring your work over from the Claude-hosted version, and how you move it to a new phone.
 - Sharing the **address** shares the empty app. Each person's data stays on their own phone. To share suppliers with a colleague, send them a backup ZIP or the Lists pack.
